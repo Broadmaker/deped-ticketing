@@ -3,7 +3,7 @@ import { Router } from 'express'
 import { authenticate, authorize } from '../../middleware/auth.js'
 import { validate, createOfficeSchema, updateOfficeSchema, createServiceSchema, updateServiceSchema } from '../../middleware/validate.js'
 import {
-  listOffices, getOffice, createOffice, updateOffice, deleteOffice,
+  listOffices, createOffice, updateOffice, deleteOffice,
   createService, updateService, deleteService,
 } from './offices.controller.js'
 
@@ -11,8 +11,6 @@ const router = Router()
 
 // Public
 router.get('/', listOffices)
-router.get('/:id', getOffice)
-
 // Protected — superadmin only
 router.use(authenticate)
 router.post  ('/',                            authorize('superadmin'), validate(createOfficeSchema), createOffice)

@@ -2,14 +2,13 @@
 import { Router } from 'express'
 import { authenticate, authorize } from '../../middleware/auth.js'
 import { validate, createUserSchema, updateUserSchema } from '../../middleware/validate.js'
-import { listUsers, getUser, createUser, updateUser, toggleStatus, deleteUser } from './users.controller.js'
+import { listUsers, createUser, updateUser, toggleStatus, deleteUser } from './users.controller.js'
 
 const router = Router()
 
 router.use(authenticate)
 
 router.get  ('/',              authorize('superadmin', 'office_admin'), listUsers)
-router.get  ('/:id',           authorize('superadmin'), getUser)
 router.post ('/',              authorize('superadmin'), validate(createUserSchema), createUser)
 router.patch('/:id',           authorize('superadmin'), validate(updateUserSchema), updateUser)
 router.patch('/:id/toggle-status', authorize('superadmin'), toggleStatus)

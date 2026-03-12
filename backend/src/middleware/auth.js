@@ -15,9 +15,9 @@ export async function authenticate(req, res, next) {
     const payload = jwt.verify(token, ENV.JWT_SECRET)
 
     // Fetch fresh user from DB (catches deactivated accounts)
-    const { rows } = await pool.query(
+    const [rows] = await pool.query(
       `SELECT id, username, name, email, avatar, role, office_id, status
-       FROM users WHERE id = $1`,
+       FROM users WHERE id = ?`,
       [payload.userId]
     )
 

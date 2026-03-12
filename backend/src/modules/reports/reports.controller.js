@@ -2,135 +2,153 @@
 import pool from '../../config/db.js'
 import { asyncHandler } from '../../middleware/errorHandler.js'
 
-function getDateRange(query) {
-  const { range, date_from, date_to } = query
-  let from = new Date()
-  let to   = new Date()
-  to.setHours(23, 59, 59, 999)
-
-  if (date_from && date_to) {
-    from = new Date(date_from); from.setHours(0,0,0,0)
-    to   = new Date(date_to);   to.setHours(23,59,59,999)
-  } else {
-    from.setHours(0,0,0,0)
-    const days = range === '7d' ? 7 : range === '90d' ? 90 : 30
-    from.setDate(from.getDate() - (days - 1))
-  }
-  return { from: from.toISOString(), to: to.toISOString() }
-}
-
-function officeScope(user) {
-  return user.role === 'superadmin' ? '' : `AND t.office_id = '${user.office_id}'`
-}
-function userOfficeScope(user) {
-  return user.role === 'superadmin' ? '' : `AND u.office_id = '${user.office_id}'`
-}
-
 export const getSummary = asyncHandler(async (req, res) => {
-  const user = req.user
-  const { from, to } = getDateRange(req.query)
-  const os = officeScope(user)
-  const us = userOfficeScope(user)
+  const me = req.user
+  const { range, date_from, date_to } = req.query
 
-  const [totalsRes, statusRes, priorityRes, officeRes, serviceRes,
-         resolutionRes, hourRes, dayRes, staffRes] = await Promise.all([
+  // ── Date range ────────────────────────────────────────────────────────
+  let dateFrom, dateTo
 
-    pool.query(`
-      SELECT
-        COUNT(*)                                                            AS total,
-        COUNT(*) FILTER (WHERE status = 'open')                            AS open,
-        COUNT(*) FILTER (WHERE status = 'in-progress')                     AS in_progress,
-        COUNT(*) FILTER (WHERE status = 'resolved')                        AS resolved,
-        COUNT(*) FILTER (WHERE status = 'closed')                          AS closed,
-        COUNT(*) FILTER (WHERE assigned_to_id IS NULL AND status = 'open') AS unassigned
-      FROM tickets t
-      WHERE t.created_at BETWEEN $1 AND $2 ${os}
-    `, [from, to]),
+  if (range === 'custom' && date_from && date_to) {
+    dateFrom = `${date_from} 00:00:00`
+    dateTo   = `${date_to} 23:59:59`
+  } else {
+    const days  = range === '90d' ? 90 : range === '30d' ? 30 : 7
+    const now   = new Date()
+    const start = new Date(now - days * 86400000)
+    dateFrom = start.toISOString().slice(0, 19).replace('T', ' ')
+    dateTo   = now.toISOString().slice(0, 19).replace('T', ' ')
+  }
 
-    pool.query(`
-      SELECT status, COUNT(*) AS count FROM tickets t
-      WHERE t.created_at BETWEEN $1 AND $2 ${os}
-      GROUP BY status ORDER BY count DESC
-    `, [from, to]),
+  const officeWhere = me.role !== 'superadmin' ? `AND t.office_id = ?` : ''
+  const officeVal   = me.role !== 'superadmin' ? [me.office_id] : []
 
-    pool.query(`
-      SELECT priority, COUNT(*) AS count FROM tickets t
-      WHERE t.created_at BETWEEN $1 AND $2 ${os}
-      GROUP BY priority ORDER BY count DESC
-    `, [from, to]),
+  // Base params reused across queries: [dateFrom, dateTo, ...officeVal]
+  const baseParams = [dateFrom, dateTo, ...officeVal]
+  const baseWhere  = `t.created_at BETWEEN ? AND ? ${officeWhere}`
 
-    pool.query(`
-      SELECT o.name AS office, o.icon, COUNT(*) AS count
-      FROM tickets t JOIN offices o ON o.id = t.office_id
-      WHERE t.created_at BETWEEN $1 AND $2 ${os}
-      GROUP BY o.id, o.name, o.icon ORDER BY count DESC
-    `, [from, to]),
+  // ── KPI counts ────────────────────────────────────────────────────────
+  const [[kpi]] = await pool.query(`
+    SELECT
+      COUNT(*)                                                         AS total,
+      SUM(CASE WHEN status = 'open'        THEN 1 ELSE 0 END)         AS open_count,
+      SUM(CASE WHEN status = 'in-progress' THEN 1 ELSE 0 END)         AS in_progress,
+      SUM(CASE WHEN status = 'resolved'    THEN 1 ELSE 0 END)         AS resolved_count,
+      SUM(CASE WHEN status = 'closed'      THEN 1 ELSE 0 END)         AS closed_count,
+      SUM(CASE WHEN assigned_to_id IS NULL THEN 1 ELSE 0 END)         AS unassigned,
+      SUM(CASE WHEN status IN ('resolved','closed') THEN 1 ELSE 0 END) AS done_count,
+      ROUND(AVG(CASE WHEN status IN ('resolved','closed')
+        THEN TIMESTAMPDIFF(MINUTE, created_at, updated_at) / 60.0 END), 2) AS avg_hrs,
+      MIN(CASE WHEN status IN ('resolved','closed')
+        THEN TIMESTAMPDIFF(MINUTE, created_at, updated_at) / 60.0 END)     AS min_hrs,
+      MAX(CASE WHEN status IN ('resolved','closed')
+        THEN TIMESTAMPDIFF(MINUTE, created_at, updated_at) / 60.0 END)     AS max_hrs
+    FROM tickets t WHERE ${baseWhere}
+  `, baseParams)
 
-    pool.query(`
-      SELECT s.label AS service, s.icon, o.name AS office, COUNT(*) AS count
-      FROM tickets t
-      JOIN services s ON s.id = t.service_id
-      JOIN offices  o ON o.id = t.office_id
-      WHERE t.created_at BETWEEN $1 AND $2 ${os}
-      GROUP BY s.id, s.label, s.icon, o.name ORDER BY count DESC LIMIT 10
-    `, [from, to]),
+  // ── By status ─────────────────────────────────────────────────────────
+  const [byStatus] = await pool.query(`
+    SELECT status, COUNT(*) AS count
+    FROM tickets t WHERE ${baseWhere}
+    GROUP BY status
+  `, baseParams)
 
-    pool.query(`
-      SELECT
-        ROUND(AVG(EXTRACT(EPOCH FROM (updated_at - created_at))/3600)::NUMERIC,2) AS avg_hours,
-        ROUND(MIN(EXTRACT(EPOCH FROM (updated_at - created_at))/3600)::NUMERIC,2) AS min_hours,
-        ROUND(MAX(EXTRACT(EPOCH FROM (updated_at - created_at))/3600)::NUMERIC,2) AS max_hours,
-        COUNT(*) AS resolved_count
-      FROM tickets t
-      WHERE t.created_at BETWEEN $1 AND $2
-        AND t.status IN ('resolved','closed') ${os}
-    `, [from, to]),
+  // ── By priority ───────────────────────────────────────────────────────
+  const [byPriority] = await pool.query(`
+    SELECT priority, COUNT(*) AS count
+    FROM tickets t WHERE ${baseWhere}
+    GROUP BY priority
+  `, baseParams)
 
-    pool.query(`
-      SELECT EXTRACT(HOUR FROM t.created_at AT TIME ZONE 'Asia/Manila')::INT AS hour,
-             COUNT(*) AS count
-      FROM tickets t WHERE t.created_at BETWEEN $1 AND $2 ${os}
-      GROUP BY hour ORDER BY hour
-    `, [from, to]),
+  // ── By office ─────────────────────────────────────────────────────────
+  const [byOffice] = await pool.query(`
+    SELECT o.name AS office_name, COUNT(t.id) AS count
+    FROM tickets t
+    JOIN offices o ON o.id = t.office_id
+    WHERE ${baseWhere}
+    GROUP BY o.id, o.name
+    ORDER BY count DESC
+    LIMIT 10
+  `, baseParams)
 
-    pool.query(`
-      SELECT EXTRACT(DOW FROM t.created_at AT TIME ZONE 'Asia/Manila')::INT AS dow,
-             COUNT(*) AS count
-      FROM tickets t WHERE t.created_at BETWEEN $1 AND $2 ${os}
-      GROUP BY dow ORDER BY dow
-    `, [from, to]),
+  // ── Top services ──────────────────────────────────────────────────────
+  const [byService] = await pool.query(`
+    SELECT s.label AS service, o.name AS office, COUNT(t.id) AS count
+    FROM tickets t
+    JOIN services s ON s.id = t.service_id
+    JOIN offices  o ON o.id = t.office_id
+    WHERE ${baseWhere}
+    GROUP BY s.id, s.label, o.name
+    ORDER BY count DESC
+    LIMIT 10
+  `, baseParams)
 
-    pool.query(`
-      SELECT
-        u.name, u.role, u.avatar,
-        o.name AS office,
-        COUNT(t.id)                                                         AS total_assigned,
-        COUNT(t.id) FILTER (WHERE t.status IN ('open','in-progress'))      AS active,
-        COUNT(t.id) FILTER (WHERE t.status = 'resolved')                   AS resolved,
-        COUNT(t.id) FILTER (WHERE t.status = 'closed')                     AS closed,
-        ROUND(AVG(
-          EXTRACT(EPOCH FROM (t.updated_at - t.created_at))/3600
-        ) FILTER (WHERE t.status IN ('resolved','closed'))::NUMERIC, 1)    AS avg_resolution_hrs
-      FROM users u
-      LEFT JOIN tickets t ON t.assigned_to_id = u.id
-        AND t.created_at BETWEEN $1 AND $2
-      LEFT JOIN offices o ON o.id = u.office_id
-      WHERE u.role IN ('staff','office_admin') AND u.status = 'active' ${us}
-      GROUP BY u.id, u.name, u.role, u.avatar, o.name
-      ORDER BY total_assigned DESC
-    `, [from, to]),
-  ])
+  // ── Peak hours (PH time UTC+8) ────────────────────────────────────────
+  const [peakHours] = await pool.query(`
+    SELECT HOUR(CONVERT_TZ(t.created_at, '+00:00', '+08:00')) AS hour,
+           COUNT(*) AS count
+    FROM tickets t WHERE ${baseWhere}
+    GROUP BY hour ORDER BY hour
+  `, baseParams)
+
+  // ── Peak days (0=Sun … 6=Sat) ─────────────────────────────────────────
+  const [peakDays] = await pool.query(`
+    SELECT DAYOFWEEK(CONVERT_TZ(t.created_at, '+00:00', '+08:00')) - 1 AS dow,
+           COUNT(*) AS count
+    FROM tickets t WHERE ${baseWhere}
+    GROUP BY dow ORDER BY dow
+  `, baseParams)
+
+  // ── Staff performance ─────────────────────────────────────────────────
+  const staffOfficeWhere = me.role !== 'superadmin' ? `AND u.office_id = ?` : ''
+  const staffParams = [...baseParams, ...(me.role !== 'superadmin' ? [me.office_id] : [])]
+
+  const [staffPerf] = await pool.query(`
+    SELECT u.id, u.name, u.avatar, u.role, o.name AS office,
+      COUNT(t.id) AS total_assigned,
+      SUM(CASE WHEN t.status IN ('open','in-progress') THEN 1 ELSE 0 END) AS active,
+      SUM(CASE WHEN t.status IN ('resolved','closed') THEN 1 ELSE 0 END) AS resolved,
+      ROUND(AVG(CASE WHEN t.status IN ('resolved','closed')
+        THEN TIMESTAMPDIFF(MINUTE, t.created_at, t.updated_at) / 60.0 END), 2) AS avg_resolution_hrs
+    FROM users u
+    LEFT JOIN offices o ON o.id = u.office_id
+    LEFT JOIN tickets t
+      ON t.assigned_to_id = u.id
+      AND t.created_at BETWEEN ? AND ?
+      ${me.role !== 'superadmin' ? `AND t.office_id = ?` : ''}
+    WHERE u.role IN ('office_admin','staff') ${staffOfficeWhere}
+    GROUP BY u.id, u.name, u.avatar, u.role, o.name
+    ORDER BY total_assigned DESC
+  `, staffParams)
 
   res.json({
-    range:       { from, to },
-    totals:      totalsRes.rows[0],
-    by_status:   statusRes.rows,
-    by_priority: priorityRes.rows,
-    by_office:   officeRes.rows,
-    by_service:  serviceRes.rows,
-    resolution:  resolutionRes.rows[0],
-    peak_hours:  hourRes.rows,
-    peak_days:   dayRes.rows,
-    staff:       staffRes.rows,
+    range: { from: dateFrom.slice(0, 10), to: dateTo.slice(0, 10) },
+    totals: {
+      total:       Number(kpi.total        || 0),
+      open:        Number(kpi.open_count   || 0),
+      in_progress: Number(kpi.in_progress  || 0),
+      resolved:    Number(kpi.resolved_count || 0),
+      closed:      Number(kpi.closed_count || 0),
+      unassigned:  Number(kpi.unassigned   || 0),
+    },
+    resolution: {
+      resolved_count: Number(kpi.done_count || 0),
+      avg_hours: kpi.avg_hrs ? Number(kpi.avg_hrs) : null,
+      min_hours: kpi.min_hrs ? Number(kpi.min_hrs) : null,
+      max_hours: kpi.max_hrs ? Number(kpi.max_hrs) : null,
+    },
+    by_status:   byStatus.map(r  => ({ ...r, count: Number(r.count) })),
+    by_priority: byPriority.map(r => ({ ...r, count: Number(r.count) })),
+    by_office:   byOffice.map(r  => ({ ...r, count: Number(r.count) })),
+    by_service:  byService.map(r => ({ ...r, count: Number(r.count) })),
+    peak_hours:  peakHours.map(r => ({ hour: Number(r.hour), count: Number(r.count) })),
+    peak_days:   peakDays.map(r  => ({ dow:  Number(r.dow),  count: Number(r.count) })),
+    staff:       staffPerf.map(r => ({
+      ...r,
+      total_assigned:    Number(r.total_assigned || 0),
+      active:            Number(r.active         || 0),
+      resolved:          Number(r.resolved       || 0),
+      avg_resolution_hrs: r.avg_resolution_hrs ? Number(r.avg_resolution_hrs) : null,
+    })),
   })
 })

@@ -3,14 +3,14 @@ import { Router } from 'express'
 import { authenticate } from '../../middleware/auth.js'
 import { validate, createTicketSchema, updateTicketSchema, createReplySchema } from '../../middleware/validate.js'
 import {
-  listTickets, getTicket, createTicket, updateTicket,
+  listTickets, getTicket, submitTicket, updateTicket,
   addReply, trackTicket, getStats,
 } from './tickets.controller.js'
 
 const router = Router()
 
 // Public routes (no auth)
-router.post('/',          validate(createTicketSchema), createTicket)
+router.post('/',          validate(createTicketSchema), submitTicket)
 router.get ('/track/:id', trackTicket)
 
 // Protected routes
