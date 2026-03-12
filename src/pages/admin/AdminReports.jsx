@@ -182,7 +182,7 @@ function StaffTable({ staff, totals }) {
                   </div>
                   <div>
                     <div className="font-semibold text-gray-800 text-xs">{s.name}</div>
-                    <div className="text-xs text-gray-400 capitalize">{s.role.replace('_',' ')}</div>
+                    <div className="text-xs text-gray-400 capitalize">{(s.role || '').replace('_',' ')}</div>
                   </div>
                 </div>
               </td>
