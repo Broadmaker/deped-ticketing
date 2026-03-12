@@ -151,3 +151,22 @@ CREATE TABLE IF NOT EXISTS notifications (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE INDEX idx_notifications_user ON notifications(user_id, is_read);
+
+-- ─── CSM SURVEY ───────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS csm_surveys (
+  id                   INT          NOT NULL AUTO_INCREMENT,
+  ticket_id            VARCHAR(30)  NOT NULL,
+  token                VARCHAR(64)  NOT NULL,
+  overall_rating       TINYINT      DEFAULT NULL,
+  issue_resolved       TINYINT(1)   DEFAULT NULL,
+  response_time_rating TINYINT      DEFAULT NULL,
+  staff_rating         TINYINT      DEFAULT NULL,
+  comments             TEXT         DEFAULT NULL,
+  submitted_at         DATETIME     DEFAULT NULL,
+  created_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_csm_ticket  (ticket_id),
+  UNIQUE KEY uq_csm_token   (token),
+  CONSTRAINT fk_csm_ticket FOREIGN KEY (ticket_id) REFERENCES tickets(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

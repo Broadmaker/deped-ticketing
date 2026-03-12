@@ -9,6 +9,12 @@ export const getSummary = asyncHandler(async (req, res) => {
   // ── Date range ────────────────────────────────────────────────────────
   let dateFrom, dateTo
 
+  // Helper: format Date to 'YYYY-MM-DD HH:MM:SS' in local server time
+  function toLocalDT(d) {
+    const pad = n => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  }
+
   if (range === 'custom' && date_from && date_to) {
     dateFrom = `${date_from} 00:00:00`
     dateTo   = `${date_to} 23:59:59`
@@ -16,8 +22,8 @@ export const getSummary = asyncHandler(async (req, res) => {
     const days  = range === '90d' ? 90 : range === '30d' ? 30 : 7
     const now   = new Date()
     const start = new Date(now - days * 86400000)
-    dateFrom = start.toISOString().slice(0, 19).replace('T', ' ')
-    dateTo   = now.toISOString().slice(0, 19).replace('T', ' ')
+    dateFrom = toLocalDT(start)
+    dateTo   = toLocalDT(now)
   }
 
   const officeWhere = me.role !== 'superadmin' ? `AND t.office_id = ?` : ''

@@ -9,11 +9,12 @@ import { StatusBadge, PriorityBadge } from '../../components/ui/Badges.jsx'
 import { formatDate } from '../../lib/utils.js'
 
 const STATUS_OPTIONS   = [
-  { value: 'open',        label: '📬 Open' },
-  { value: 'in-progress', label: '⚙️ In Progress' },
-  { value: 'resolved',    label: '✅ Resolved' },
-  { value: 'closed',      label: '🔒 Closed' },
+  { value: 'open',        label: '📬 Open',        order: 0 },
+  { value: 'in-progress', label: '⚙️  In Progress', order: 1 },
+  { value: 'resolved',    label: '✅ Resolved',     order: 2 },
+  { value: 'closed',      label: '🔒 Closed',       order: 3 },
 ]
+const STATUS_ORDER = { 'open': 0, 'in-progress': 1, 'resolved': 2, 'closed': 3 }
 const PRIORITY_OPTIONS = [
   { value: 'high',   label: '▲ High',   color: '#dc2626' },
   { value: 'medium', label: '◆ Medium', color: '#d97706' },
@@ -349,23 +350,37 @@ export default function AdminTicketDetail() {
                 <div className="rounded-xl p-4" style={{ background: '#f8faf9' }}>
                   <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Update Status</div>
                   <div className="space-y-1.5">
-                    {STATUS_OPTIONS.map(opt => (
-                      <button key={opt.value} disabled={saving}
-                        className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all"
-                        style={{
-                          background: ticket.status === opt.value ? '#0B4E3D' : 'transparent',
-                          color:      ticket.status === opt.value ? 'white'   : '#4b5563',
-                          border:     `1px solid ${ticket.status === opt.value ? '#0B4E3D' : '#e5e7eb'}`,
-                        }}
-                        onClick={() => handle(
-                          () => updateStatus(ticket.id, opt.value),
-                          `Status updated to "${opt.label.replace(/^[^\s]+\s/, '')}".`,
-                          'Failed to update status.'
-                        )}>
-                        {opt.label}
-                      </button>
-                    ))}
+                    {STATUS_OPTIONS.map((opt, i) => {
+                      const currentOrder = STATUS_ORDER[ticket.status] ?? 0
+                      const isCurrent  = ticket.status === opt.value
+                      const isDone     = opt.order < currentOrder
+                      const isNext     = opt.order === currentOrder + 1
+                      const isDisabled = saving || isCurrent || isDone || opt.order > currentOrder + 1
+                      return (
+                        <button key={opt.value}
+                          disabled={isDisabled}
+                          className="w-full text-left px-3 py-2 rounded-lg text-xs font-semibold transition-all flex items-center justify-between"
+                          style={{
+                            background: isCurrent ? '#0B4E3D' : isDone ? '#f0fdf4' : 'transparent',
+                            color:      isCurrent ? 'white' : isDone ? '#16a34a' : isNext ? '#0B4E3D' : '#9ca3af',
+                            border:     `1px solid ${isCurrent ? '#0B4E3D' : isDone ? '#bbf7d0' : isNext ? '#0B4E3D' : '#e5e7eb'}`,
+                            cursor:     isDisabled ? 'not-allowed' : 'pointer',
+                            opacity:    !isCurrent && !isDone && !isNext ? 0.45 : 1,
+                          }}
+                          onClick={() => !isDisabled && handle(
+                            () => updateStatus(ticket.id, opt.value),
+                            `Status updated to "${opt.label.replace(/^[^\s]+\s/, '')}".`,
+                            'Failed to update status.'
+                          )}>
+                          <span>{opt.label}</span>
+                          {isDone  && <span style={{ fontSize: 10 }}>✓ Done</span>}
+                          {isCurrent && <span style={{ fontSize: 10 }}>● Current</span>}
+                          {isNext  && <span style={{ fontSize: 10 }}>→ Next</span>}
+                        </button>
+                      )
+                    })}
                   </div>
+                  <p className="text-xs text-gray-400 mt-2">Status moves forward only</p>
                 </div>
 
                 {/* Timestamps */}

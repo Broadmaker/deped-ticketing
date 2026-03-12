@@ -14,6 +14,8 @@ import userRoutes    from './modules/users/users.routes.js'
 import officeRoutes  from './modules/offices/offices.routes.js'
 import reportRoutes  from './modules/reports/reports.routes.js'
 import notifRoutes   from './modules/notifications/notifications.routes.js'
+import csmRoutes     from './modules/csm/csm.routes.js'
+import { verifyMailer } from './services/mailer.js'
 
 const app = express()
 
@@ -58,6 +60,7 @@ app.use('/api/users',   userRoutes)
 app.use('/api/offices', officeRoutes)
 app.use('/api/reports',        reportRoutes)
 app.use('/api/notifications',  notifRoutes)
+app.use('/api/csm',            csmRoutes)
 
 // ── Error handling ────────────────────────────────────────────────────────────
 app.use(notFound)
@@ -72,5 +75,7 @@ app.listen(ENV.PORT, () => {
   console.log(`  🔗 Frontend:    ${ENV.CLIENT_URL}`)
   console.log('')
 })
+
+verifyMailer()
 
 export default app

@@ -2,6 +2,8 @@
 import { randomUUID } from 'crypto'
 import pool from '../../config/db.js'
 import { asyncHandler } from '../../middleware/errorHandler.js'
+import { sendTicketConfirmation, sendStatusUpdate } from '../../services/mailer.js'
+import { getOrCreateCsmToken } from '../csm/csm.controller.js'
 
 // ── Helper: generate next TKT-YYYY-XXXX id ───────────────────────────────────
 async function nextTicketId(conn) {
@@ -47,6 +49,24 @@ export const submitTicket = asyncHandler(async (req, res) => {
     `, [randomUUID(), id])
 
     await conn.commit()
+
+    // Send confirmation email (non-blocking — don't fail ticket if email fails)
+    const [[ticketRow]] = await pool.query(
+      `SELECT t.subject, o.name AS office_name, s.label AS service_label
+       FROM tickets t
+       JOIN offices o ON o.id = t.office_id
+       JOIN services s ON s.id = t.service_id
+       WHERE t.id = ?`, [id]
+    )
+    sendTicketConfirmation({
+      to:      submitter_email,
+      name:    submitter_name,
+      ticketId: id,
+      subject: ticketRow?.subject  || subject,
+      office:  ticketRow?.office_name   || office_id,
+      service: ticketRow?.service_label || service_id,
+    }).catch(err => console.warn('📧 Confirmation email failed:', err.message))
+
     res.status(201).json({ id, message: 'Ticket submitted successfully.' })
   } catch (err) {
     await conn.rollback()
@@ -228,9 +248,20 @@ export const updateTicket = asyncHandler(async (req, res) => {
     const params  = []
     const logs    = []
 
+    // Status can only move forward: open → in-progress → resolved → closed
+    const STATUS_ORDER = { 'open': 0, 'in-progress': 1, 'resolved': 2, 'closed': 3 }
+    let statusChanged = false
     if (status !== undefined && status !== ticket.status) {
+      const currentRank = STATUS_ORDER[ticket.status] ?? 0
+      const newRank     = STATUS_ORDER[status] ?? 0
+      if (newRank <= currentRank) {
+        return res.status(400).json({
+          error: `Cannot change status from "${ticket.status}" back to "${status}". Status can only move forward.`
+        })
+      }
       updates.push('status = ?'); params.push(status)
       logs.push(`Status → ${status.charAt(0).toUpperCase() + status.slice(1)}`)
+      statusChanged = true
     }
     if (priority !== undefined && priority !== ticket.priority) {
       updates.push('priority = ?'); params.push(priority)
@@ -277,6 +308,35 @@ export const updateTicket = asyncHandler(async (req, res) => {
     }
 
     await conn.commit()
+
+    // Send status update email if status changed
+    if (statusChanged) {
+      console.log(`📧 Sending status email for ${id}: ${ticket.status} → ${status}`)
+      const [[updated]] = await pool.query(
+        `SELECT t.submitter_name, t.submitter_email, t.subject, t.resolution, o.name AS office_name
+         FROM tickets t JOIN offices o ON o.id = t.office_id WHERE t.id = ?`, [id]
+      )
+      if (updated?.submitter_email) {
+        console.log(`📧 Sending to: ${updated.submitter_email}`)
+        // Generate CSM token for resolved/closed tickets
+        let csmToken = null
+        if (status === 'resolved' || status === 'closed') {
+          try { csmToken = await getOrCreateCsmToken(id) } catch (_) {}
+        }
+        sendStatusUpdate({
+          to:         updated.submitter_email,
+          name:       updated.submitter_name,
+          ticketId:   id,
+          subject:    updated.subject,
+          oldStatus:  ticket.status,
+          newStatus:  status,
+          officeName: updated.office_name,
+          resolution: updated.resolution,
+          csmToken,
+        }).catch(err => console.warn('📧 Status email failed:', err.message))
+      }
+    }
+
     res.json({ message: 'Ticket updated.' })
   } catch (err) {
     await conn.rollback()

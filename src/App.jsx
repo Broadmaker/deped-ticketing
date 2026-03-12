@@ -12,6 +12,8 @@ import PublicLayout from './components/layouts/PublicLayout.jsx'
 import AdminLayout  from './components/layouts/AdminLayout.jsx'
 
 // Public pages
+import AdminCsm      from './pages/admin/AdminCsm.jsx'
+import CsmPage      from './pages/public/CsmPage.jsx'
 import HomePage   from './pages/public/HomePage.jsx'
 import SubmitPage from './pages/public/SubmitPage.jsx'
 import TrackPage  from './pages/public/TrackPage.jsx'
@@ -39,7 +41,8 @@ export default function App() {
                 <Route element={<PublicLayout />}>
                   <Route path="/"       element={<HomePage />} />
                   <Route path="/submit" element={<SubmitPage />} />
-                  <Route path="/track"  element={<TrackPage />} />
+                  <Route path="/csm/:token" element={<CsmPage />} />
+        <Route path="/track"  element={<TrackPage />} />
                 </Route>
 
                 {/* ── Login ───────────────────────────── */}
@@ -57,6 +60,7 @@ export default function App() {
                   <Route path="offices"     element={<AdminOffices />} />
                   <Route path="settings"    element={<AdminSettings />} />
                   <Route path="reports"     element={<AdminReports />} />
+                  <Route path="csm"         element={<AdminCsm />} />
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />

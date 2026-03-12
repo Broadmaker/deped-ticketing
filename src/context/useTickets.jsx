@@ -18,7 +18,7 @@ export function TicketProvider({ children }) {
     setError(null)
     try {
       const res = await api.get('/tickets?limit=200')
-      setTickets(res.data || [])
+      setTickets(res.tickets || [])
     } catch (err) {
       setError(err.message)
     } finally {
@@ -31,7 +31,7 @@ export function TicketProvider({ children }) {
   // ── Mutations ─────────────────────────────────────────────────────────────
 
   async function addTicket(data) {
-    const res = await api.post('/tickets', {
+    const payload = {
       office_id:        data.officeId,
       service_id:       data.service,
       submitter_name:   data.name,
@@ -40,7 +40,10 @@ export function TicketProvider({ children }) {
       submitter_school: data.school,
       subject:          data.subject,
       concern:          data.concern,
-    })
+    }
+    // Debug: log payload so we can see what's being sent
+    console.log('[addTicket] payload:', payload)
+    const res = await api.post('/tickets', payload)
     return res  // { id, message }
   }
 

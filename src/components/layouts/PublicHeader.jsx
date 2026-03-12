@@ -18,12 +18,24 @@ export default function PublicHeader() {
           onClick={() => navigate('/')}
           className="flex items-center gap-3 text-left"
         >
-          <div
+          {/* <div
             className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
             style={{ background: '#FFC107' }}
           >
             🎓
-          </div>
+          </div> */}
+
+          <div
+  className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0 overflow-hidden"
+  style={{ background: '#FFC107' }}
+>
+  <img
+    src="/sample_img.jpg"
+    alt="Me"
+    className="w-full h-full object-cover"
+  />
+</div>
+
           <div>
             <div className="font-serif text-white text-lg leading-tight">
               DepEd Zamboanga Sibugay
