@@ -103,6 +103,25 @@ export const createTicket = asyncHandler(async (req, res) => {
   const { office_id, service_id, submitter_name, submitter_email,
           submitter_phone, submitter_school, subject, concern } = req.body
 
+  // Pre-validate: office exists and is active
+  const { rows: officeRows } = await pool.query(
+    'SELECT id, is_active FROM offices WHERE id = $1', [office_id]
+  )
+  if (!officeRows[0]) {
+    return res.status(400).json({ error: 'Selected office does not exist.' })
+  }
+  if (!officeRows[0].is_active) {
+    return res.status(400).json({ error: 'Selected office is not currently accepting tickets.' })
+  }
+
+  // Pre-validate: service exists and belongs to this office
+  const { rows: svcRows } = await pool.query(
+    'SELECT id FROM services WHERE id = $1 AND office_id = $2', [service_id, office_id]
+  )
+  if (!svcRows[0]) {
+    return res.status(400).json({ error: 'Selected service does not exist under this office.' })
+  }
+
   const client = await pool.connect()
   try {
     await client.query('BEGIN')
@@ -163,9 +182,26 @@ export const updateTicket = asyncHandler(async (req, res) => {
       params.push(assigned_to_id || null); updates.push(`assigned_to_id = $${params.length}`)
       if (assigned_to_id) {
         const { rows: assignee } = await client.query('SELECT name FROM users WHERE id = $1', [assigned_to_id])
-        logs.push(`Assigned to ${assignee[0]?.name || assigned_to_id}`)
+        const assigneeName = assignee[0]?.name || assigned_to_id
+        logs.push(`Assigned to ${assigneeName}`)
+        // Create notification for the assigned user
+        await client.query(
+          `INSERT INTO notifications (user_id, ticket_id, type, message)
+           VALUES ($1, $2, 'assignment', $3)`,
+          [assigned_to_id, id,
+           `You have been assigned ticket ${id}: "${ticket.subject}" by ${user.name}.`]
+        )
       } else {
-        logs.push('Unassigned')
+        logs.push(`Unassigned (was: ${ticket.assigned_to_id ? 'assigned' : 'unassigned'})`)
+        // Notify previous assignee if there was one
+        if (ticket.assigned_to_id) {
+          await client.query(
+            `INSERT INTO notifications (user_id, ticket_id, type, message)
+             VALUES ($1, $2, 'unassignment', $3)`,
+            [ticket.assigned_to_id, id,
+             `Ticket ${id}: "${ticket.subject}" has been unassigned from you by ${user.name}.`]
+          )
+        }
       }
     }
     if (resolution !== undefined) {

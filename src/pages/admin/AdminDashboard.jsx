@@ -35,7 +35,12 @@ export default function AdminDashboard() {
   const recentTickets = apiStats?.recent || [...tickets]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 5)
 
-  const staffList = users.filter(u => u.role === 'staff' || u.role === 'office_admin')
+  const staffList = users.filter(u => {
+    if (u.role !== 'staff' && u.role !== 'office_admin') return false
+    // Office admins only see staff from their own office
+    if (currentUser?.role !== 'superadmin' && u.office_id !== currentUser?.office_id) return false
+    return true
+  })
   const staffWorkload = staffList.map(s => ({
     ...s,
     assigned: tickets.filter(t => t.assigned_to_id === s.id).length,

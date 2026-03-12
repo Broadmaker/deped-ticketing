@@ -8,7 +8,7 @@ const router = Router()
 
 router.use(authenticate)
 
-router.get  ('/',              authorize('superadmin'), listUsers)
+router.get  ('/',              authorize('superadmin', 'office_admin'), listUsers)
 router.get  ('/:id',           authorize('superadmin'), getUser)
 router.post ('/',              authorize('superadmin'), validate(createUserSchema), createUser)
 router.patch('/:id',           authorize('superadmin'), validate(updateUserSchema), updateUser)

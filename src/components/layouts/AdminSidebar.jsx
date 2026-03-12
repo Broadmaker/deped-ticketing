@@ -7,6 +7,7 @@ const MENU_ITEMS = [
   { id: 'tickets',   label: 'All Tickets',         icon: '🎫', path: '/admin/tickets',  permission: null },
   { id: 'offices',   label: 'Offices & Services',  icon: '🏢', path: '/admin/offices',  permission: 'manage_offices' },
   { id: 'users',     label: 'Users',               icon: '👥', path: '/admin/users',    permission: 'manage_users' },
+  { id: 'reports',   label: 'Reports',              icon: '📊', path: '/admin/reports',  permission: 'view_dashboard' },
   { id: 'settings',  label: 'Settings',            icon: '⚙️', path: '/admin/settings', permission: 'access_settings' },
 ]
 

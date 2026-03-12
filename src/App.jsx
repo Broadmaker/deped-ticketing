@@ -24,6 +24,7 @@ import AdminTicketDetail from './pages/admin/AdminTicketDetail.jsx'
 import AdminUsers        from './pages/admin/AdminUsers.jsx'
 import AdminOffices      from './pages/admin/AdminOffices.jsx'
 import AdminSettings     from './pages/admin/AdminSettings.jsx'
+import AdminReports      from './pages/admin/AdminReports.jsx'
 
 export default function App() {
   return (
@@ -55,6 +56,7 @@ export default function App() {
                   <Route path="users"       element={<AdminUsers />} />
                   <Route path="offices"     element={<AdminOffices />} />
                   <Route path="settings"    element={<AdminSettings />} />
+                  <Route path="reports"     element={<AdminReports />} />
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />

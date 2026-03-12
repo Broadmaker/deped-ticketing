@@ -79,7 +79,7 @@ function UserForm({ initial = {}, onSave, onClose, offices, currentUserId }) {
     username: initial.username || '',
     password: initial.password || '',
     role:     initial.role     || 'staff',
-    officeId: initial.officeId || '',
+    officeId: initial.officeId || initial.office_id || '',
     status:   initial.status   || 'active',
   })
   const [showPass, setShowPass] = useState(false)
@@ -105,7 +105,7 @@ function UserForm({ initial = {}, onSave, onClose, offices, currentUserId }) {
     const selectedOffice = activeOffices.find(o => o.id === form.officeId)
     onSave({
       ...form,
-      office: form.role === 'superadmin' ? 'All Offices' : (selectedOffice?.name || ''),
+      office: form.role === 'superadmin' ? 'All Offices' : (selectedOffice?.name || offices.find(o => o.id === form.officeId)?.name || ''),
       officeId: form.role === 'superadmin' ? null : form.officeId,
       ...(isEdit && !form.password ? { password: initial.password } : {}),
     })
@@ -306,13 +306,13 @@ export default function AdminUsers() {
 
   const filtered = users.filter(u => {
     if (filterRole   !== 'all' && u.role     !== filterRole)   return false
-    if (filterOffice !== 'all' && u.officeId !== filterOffice && !(filterOffice === 'all_offices' && !u.officeId)) return false
+    if (filterOffice !== 'all' && u.office_id !== filterOffice && !(filterOffice === 'all_offices' && !u.office_id)) return false
     const q = search.toLowerCase()
     if (q && !(
       u.name.toLowerCase().includes(q)     ||
       u.username.toLowerCase().includes(q) ||
       u.email.toLowerCase().includes(q)    ||
-      (u.office || '').toLowerCase().includes(q)
+      (u.office_name || '').toLowerCase().includes(q)
     )) return false
     return true
   })
@@ -473,10 +473,10 @@ export default function AdminUsers() {
 
                 {/* Office */}
                 <td className="px-5 py-3 text-sm text-gray-600">
-                  {u.officeId
+                  {u.office_id
                     ? <span className="flex items-center gap-1">
-                        <span>{offices.find(o => o.id === u.officeId)?.icon}</span>
-                        {u.office}
+                        <span>{offices.find(o => o.id === u.office_id)?.icon}</span>
+                        {u.office_name}
                       </span>
                     : <span className="text-gray-400 text-xs italic">All Offices</span>
                   }
@@ -489,7 +489,7 @@ export default function AdminUsers() {
 
                 {/* Created */}
                 <td className="px-5 py-3 text-xs text-gray-400 whitespace-nowrap">
-                  {formatDate(u.createdAt)}
+                  {formatDate(u.created_at)}
                 </td>
 
                 {/* Actions */}

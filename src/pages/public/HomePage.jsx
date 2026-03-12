@@ -1,18 +1,9 @@
 import { useNavigate } from 'react-router-dom'
-import { useTickets } from '../../context/useTickets.jsx'
 import { useOffices } from '../../context/useOffices.jsx'
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const { tickets } = useTickets()
   const { offices } = useOffices()
-
-  const stats = {
-    total:      tickets.length,
-    open:       tickets.filter(t => t.status === 'open').length,
-    inProgress: tickets.filter(t => t.status === 'in-progress').length,
-    resolved:   tickets.filter(t => t.status === 'resolved').length,
-  }
 
   function handleOfficeClick(office) {
     if (office.comingSoon) return
@@ -59,21 +50,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: 'Total Tickets', val: stats.total,      icon: '🎫', color: '#0B4E3D' },
-          { label: 'Open',          val: stats.open,       icon: '📬', color: '#d4800c' },
-          { label: 'In Progress',   val: stats.inProgress, icon: '⚙️', color: '#1d6fa4' },
-          { label: 'Resolved',      val: stats.resolved,   icon: '✅', color: '#16a34a' },
-        ].map(s => (
-          <div key={s.label} className="card card-hover p-5">
-            <div className="text-2xl mb-1">{s.icon}</div>
-            <div className="text-3xl font-bold" style={{ color: s.color }}>{s.val}</div>
-            <div className="text-xs text-gray-500 font-medium mt-1">{s.label}</div>
-          </div>
-        ))}
-      </div>
+
 
       {/* Offices */}
       <h2 className="text-lg font-bold text-gray-800 mb-4">Available Offices</h2>

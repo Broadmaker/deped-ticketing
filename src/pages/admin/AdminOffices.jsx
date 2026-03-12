@@ -422,7 +422,7 @@ export default function AdminOffices() {
 
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold text-gray-800">{svc.label}</div>
-                          <div className="text-xs text-gray-400 truncate">{svc.desc || '—'}</div>
+                          <div className="text-xs text-gray-400 truncate">{svc.desc || svc.description || '—'}</div>
                         </div>
 
                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">

@@ -12,6 +12,8 @@ import authRoutes    from './modules/auth/auth.routes.js'
 import ticketRoutes  from './modules/tickets/tickets.routes.js'
 import userRoutes    from './modules/users/users.routes.js'
 import officeRoutes  from './modules/offices/offices.routes.js'
+import reportRoutes  from './modules/reports/reports.routes.js'
+import notifRoutes   from './modules/notifications/notifications.routes.js'
 
 const app = express()
 
@@ -54,6 +56,8 @@ app.use('/api/auth',    authRoutes)
 app.use('/api/tickets', ticketRoutes)
 app.use('/api/users',   userRoutes)
 app.use('/api/offices', officeRoutes)
+app.use('/api/reports',        reportRoutes)
+app.use('/api/notifications',  notifRoutes)
 
 // ── Error handling ────────────────────────────────────────────────────────────
 app.use(notFound)

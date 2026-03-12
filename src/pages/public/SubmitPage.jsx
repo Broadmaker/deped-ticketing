@@ -206,7 +206,13 @@ export default function SubmitPage() {
       setStep('success')
       toast.success('Your ticket has been submitted!')
     } catch (err) {
-      toast.error(err.message || 'Failed to submit ticket. Please try again.')
+      // Show specific validation field errors if available
+      if (err.details && err.details.length > 0) {
+        const msg = err.details.map(d => `${d.field}: ${d.message}`).join(' | ')
+        toast.error(`Validation error — ${msg}`)
+      } else {
+        toast.error(err.message || 'Failed to submit ticket. Please try again.')
+      }
     } finally {
       setSubmitting(false)
     }

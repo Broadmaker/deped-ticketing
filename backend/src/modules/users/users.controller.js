@@ -19,6 +19,12 @@ export const listUsers = asyncHandler(async (req, res) => {
   const conditions = []
   const params = []
 
+  // Office admins can only see users in their own office
+  if (req.user.role === 'office_admin') {
+    params.push(req.user.office_id)
+    conditions.push(`u.office_id = $${params.length}`)
+  }
+
   if (role)      { params.push(role);      conditions.push(`u.role = $${params.length}`) }
   if (office_id) { params.push(office_id); conditions.push(`u.office_id = $${params.length}`) }
   if (status)    { params.push(status);    conditions.push(`u.status = $${params.length}`) }
@@ -84,22 +90,24 @@ export const updateUser = asyncHandler(async (req, res) => {
   const updates = []
   const params  = []
 
-  if (username) { params.push(username); updates.push(`username = $${params.length}`) }
-  if (name)     { params.push(name);     updates.push(`name = $${params.length}`); updates.push(`avatar = $${params.length}`); params.push(makeAvatar(name)); params.pop(); params.push(name); }
-  if (email)    { params.push(email);    updates.push(`email = $${params.length}`) }
-  if (role)     { params.push(role);     updates.push(`role = $${params.length}`) }
-  if (status)   { params.push(status);   updates.push(`status = $${params.length}`) }
+  // Helper: add a param and return its $N placeholder
+  const p = (val) => { params.push(val); return `$${params.length}` }
+
+  if (username !== undefined) updates.push(`username = ${p(username)}`)
+  if (name     !== undefined) {
+    updates.push(`name = ${p(name)}`)
+    updates.push(`avatar = ${p(makeAvatar(name))}`)
+  }
+  if (email    !== undefined) updates.push(`email = ${p(email)}`)
+  if (role     !== undefined) updates.push(`role = ${p(role)}`)
+  if (status   !== undefined) updates.push(`status = ${p(status)}`)
   if (password) {
     const hash = await bcrypt.hash(password, SALT_ROUNDS)
-    params.push(hash); updates.push(`password_hash = $${params.length}`)
-  }
-  if (name) {
-    params.push(makeAvatar(name)); updates.push(`avatar = $${params.length}`)
+    updates.push(`password_hash = ${p(hash)}`)
   }
   if (office_id !== undefined) {
     const resolvedRole = role || existing[0].role
-    params.push(resolvedRole === 'superadmin' ? null : office_id)
-    updates.push(`office_id = $${params.length}`)
+    updates.push(`office_id = ${p(resolvedRole === 'superadmin' ? null : office_id)}`)
   }
 
   if (updates.length === 0) return res.json({ message: 'No changes.' })

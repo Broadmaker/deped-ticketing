@@ -1,4 +1,5 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import NotificationBell from '../ui/NotificationBell.jsx'
 import AdminSidebar from './AdminSidebar.jsx'
 import { useAuth } from '../../context/useAuth.jsx'
 import { useTickets } from '../../context/useTickets.jsx'
@@ -10,6 +11,7 @@ const PAGE_TITLES = {
   '/admin/users':    'Users',
   '/admin/offices':  'Offices & Services',
   '/admin/settings': 'Settings',
+  '/admin/reports':  'Reports & Analytics',
 }
 
 export default function AdminLayout() {
@@ -40,6 +42,7 @@ export default function AdminLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            <NotificationBell />
             {openCount > 0 && (
               <button
                 onClick={() => navigate('/admin/tickets')}

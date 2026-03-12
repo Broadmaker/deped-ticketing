@@ -59,7 +59,7 @@ export function UsersProvider({ children }) {
   const [loading, setLoading] = useState(false)
 
   const fetchUsers = useCallback(async () => {
-    if (!currentUser || currentUser.role !== 'superadmin') return
+    if (!currentUser || !['superadmin', 'office_admin'].includes(currentUser.role)) return
     setLoading(true)
     try {
       const data = await api.get('/users')

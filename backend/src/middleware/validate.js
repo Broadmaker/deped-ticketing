@@ -69,8 +69,8 @@ export const createTicketSchema = z.object({
   submitter_email:  z.string().email(),
   submitter_phone:  z.string().max(30).optional().nullable(),
   submitter_school: z.string().min(2).max(200),
-  subject:          z.string().min(5).max(300),
-  concern:          z.string().min(10),
+  subject:          z.string().min(3, 'Subject is too short.').max(300),
+  concern:          z.string().min(3, 'Please describe your concern.'),
 })
 
 export const updateTicketSchema = z.object({
