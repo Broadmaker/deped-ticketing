@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTickets } from '../../context/useTickets.jsx'
-import { useOffices } from '../../context/useOffices.jsx'
 import { StatusBadge, PriorityBadge } from '../../components/ui/Badges.jsx'
 import { formatDateShort } from '../../lib/utils.js'
 
@@ -32,7 +31,6 @@ const STATUS_ORDER   = { open: 0, 'in-progress': 1, resolved: 2, closed: 3 }
 export default function AdminTicketList() {
   const navigate      = useNavigate()
   const { tickets }   = useTickets()
-  const { getServices } = useOffices()
 
   // ── Filter state ────────────────────────────────────────────────────────
   const [search,         setSearch]         = useState('')
@@ -62,16 +60,14 @@ export default function AdminTicketList() {
   const serviceOptions = useMemo(() => {
     const seen = new Set()
     const opts = []
-    tickets.forEach(t => {
-      if (!seen.has(t.service_id)) {
+    for (const t of tickets) {
+      if (t.service_id && !seen.has(t.service_id)) {
         seen.add(t.service_id)
-        const svcs = getServices(t.office_id)
-        const svc  = svcs.find(s => s.id === t.service_id)
-        opts.push({ id: t.service_id, label: svc ? `${svc.icon} ${svc.label}` : t.service_id })
+        opts.push({ id: t.service_id, label: t.service_label || t.service_id })
       }
-    })
+    }
     return opts.sort((a, b) => a.label.localeCompare(b.label))
-  }, [tickets, getServices])
+  }, [tickets])
 
   // ── Filter ──────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -336,8 +332,6 @@ export default function AdminTicketList() {
                   </td>
                 </tr>
               ) : paginated.map(t => {
-                const svcs = getServices(t.office_id)
-                const svc  = svcs.find(s => s.id === t.service_id)
                 return (
                   <tr
                     key={t.id}
@@ -374,7 +368,7 @@ export default function AdminTicketList() {
                         case 'service':
                           return (
                             <td key={col.key} className="px-5 py-3 text-xs text-gray-600 whitespace-nowrap">
-                              {svc ? `${svc.icon} ${svc.label}` : t.service_id}
+                              {t.service_label || t.service_id || '—'}
                             </td>
                           )
                         case 'assignedTo':
